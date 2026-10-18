@@ -18,22 +18,7 @@
 #include <dt-bindings/thermal/thermal.h>
 #include <dt-bindings/usb/pd.h>
 #include "rk3588.dtsi"
-
-/*
- * HDMI1 sound node — defined locally since the vendor rk3588.dtsi
- * does not provide an hdmi1_sound label (unlike the mainline tree).
- */
-/ {
-	hdmi1_sound: hdmi1-sound {
-		status = "disabled";
-		compatible = "rockchip,hdmi";
-		rockchip,mclk-fs = <128>;
-		rockchip,card-name = "rockchip-hdmi1";
-		rockchip,cpu = <&i2s6_8ch>;
-		rockchip,codec = <&hdmi1>;
-		rockchip,jack-det;
-	};
-};
+#include "rk3588-vendor-nodes.dtsi"
 
 / {
 	model = "AIoT 3588IED";
@@ -48,33 +33,41 @@
 
 	adc-keys-0 {
 		compatible = "adc-keys";
-		io-channels = <&saradc 1>;
+		io-channels = <&saradc 0>;
 		io-channel-names = "buttons";
 		keyup-threshold-microvolt = <1800000>;
 		poll-interval = <100>;
 
-		vol-up-key {
-			label = "volume up";
-			linux,code = <KEY_VOLUMEUP>;
-			press-threshold-microvolt = <176000>;
+		button-maskrom {
+			label = "Mask Rom";
+			linux,code = <KEY_SETUP>;
+			press-threshold-microvolt = <2000>;
 		};
+	};
 
-		vol-down-key {
-			label = "volume down";
-			linux,code = <KEY_VOLUMEDOWN>;
-			press-threshold-microvolt = <417000>;
+	chosen {
+		stdout-path = "serial2:1500000n8";
+	};
+
+	hdmi0-con {
+		compatible = "hdmi-connector";
+		type = "a";
+
+		port {
+			hdmi0_con_in: endpoint {
+				remote-endpoint = <&hdmi0_out_con>;
+			};
 		};
+	};
 
-		menu-key {
-			label = "menu";
-			linux,code = <KEY_MENU>;
-			press-threshold-microvolt = <894000>;
-		};
+	hdmi1-con {
+		compatible = "hdmi-connector";
+		type = "a";
 
-		back-key {
-			label = "back";
-			linux,code = <KEY_BACK>;
-			press-threshold-microvolt = <1235000>;
+		port {
+			hdmi1_con_in: endpoint {
+				remote-endpoint = <&hdmi1_out_con>;
+			};
 		};
 	};
 
@@ -89,18 +82,6 @@
 			linux,code = <KEY_F8>;
 		};
 	};
-
-	chosen {
-		stdout-path = "serial2:1500000n8";
-	};
-
-	/*
-
-	 * HDMI connector nodes removed — the vendor rk3588.dtsi HDMI
-	 * controller does not expose hdmi0_out / hdmi1_out output ports
-	 * (only input ports hdmi0_in / hdmi1_in).  HDMI output is handled
-	 * directly by the display pipeline (VOP → HDMI).
-	 */
 
 	ir-receiver {
 		compatible = "gpio-ir-receiver";
@@ -270,27 +251,6 @@
 		regulator-max-microvolt = <3300000>;
 		vin-supply = <&vcc_3v3_s3>;
 	};
-
-	wireless_wlan: wireless-wlan {
-		compatible = "wlan-platdata";
-		wifi_chip_type = "ap6275p";
-		WIFI,poweren-gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_HIGH>;
-		status = "okay";
-	};
-
-	wireless_bluetooth: wireless-bluetooth {
-		compatible = "bluetooth-platdata";
-		clocks = <&hym8563>;
-		clock-names = "ext_clock";
-		uart_rts_gpios = <&gpio4 RK_PC4 GPIO_ACTIVE_LOW>;
-		pinctrl-names = "default", "rts_gpio";
-		pinctrl-0 = <&uart9m0_rtsn &bt_reset_gpio &bt_wake_gpio &bt_irq_gpio>;
-		pinctrl-1 = <&uart9_rts_gpio>;
-		BT,reset-gpios = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
-		BT,wake-gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
-		BT,wake_host-gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
-		status = "okay";
-	};
 };
 
 &combphy0_ps {
@@ -307,42 +267,34 @@
 
 &cpu_l0 {
 	cpu-supply = <&vdd_cpu_lit_s0>;
-	mem-supply = <&vdd_cpu_lit_mem_s0>;
 };
 
 &cpu_l1 {
 	cpu-supply = <&vdd_cpu_lit_s0>;
-	mem-supply = <&vdd_cpu_lit_mem_s0>;
 };
 
 &cpu_l2 {
 	cpu-supply = <&vdd_cpu_lit_s0>;
-	mem-supply = <&vdd_cpu_lit_mem_s0>;
 };
 
 &cpu_l3 {
 	cpu-supply = <&vdd_cpu_lit_s0>;
-	mem-supply = <&vdd_cpu_lit_mem_s0>;
 };
 
 &cpu_b0 {
 	cpu-supply = <&vdd_cpu_big0_s0>;
-	mem-supply = <&vdd_cpu_big0_mem_s0>;
 };
 
 &cpu_b1 {
 	cpu-supply = <&vdd_cpu_big0_s0>;
-	mem-supply = <&vdd_cpu_big0_mem_s0>;
 };
 
 &cpu_b2 {
 	cpu-supply = <&vdd_cpu_big1_s0>;
-	mem-supply = <&vdd_cpu_big1_mem_s0>;
 };
 
 &cpu_b3 {
 	cpu-supply = <&vdd_cpu_big1_s0>;
-	mem-supply = <&vdd_cpu_big1_mem_s0>;
 };
 
 &gmac1 {
@@ -350,24 +302,6 @@
 	phy-mode = "rgmii-rxid";
 	tx_delay = <0x43>;
 	phy-handle = <&rgmii_phy1>;
-	local-mac-address = [00 e0 4c 68 00 01];
-	/*
-	 * The dwmac-rk driver unconditionally looks up mac_clk_rx,
-	 * mac_clk_tx, and clk_mac_speed by name.  The RK3588 CRU has
-	 * no dedicated RGMII RX/TX speed mux clocks (speed control is
-	 * done via GRF registers), so we reuse CLK_GMAC_125M for all
-	 * three to satisfy the driver.
-	 */
-	clocks = <&cru CLK_GMAC_125M>, <&cru CLK_GMAC_50M>,
-		 <&cru PCLK_GMAC1>, <&cru ACLK_GMAC1>,
-		 <&cru CLK_GMAC1_PTP_REF>,
-		 <&cru CLK_GMAC_125M>, <&cru CLK_GMAC_125M>,
-		 <&cru CLK_GMAC_125M>;
-	clock-names = "stmmaceth", "clk_mac_ref",
-		      "pclk_mac", "aclk_mac",
-		      "ptp_ref",
-		      "mac_clk_rx", "mac_clk_tx",
-		      "clk_mac_speed";
 	pinctrl-names = "default";
 	pinctrl-0 = <&gmac1_miim
 		     &gmac1_tx_bus2
@@ -389,20 +323,14 @@
 	};
 };
 
+/*
+ * GPU: the 6.6 mainline tree has no driver for arm,mali-valhall-csf
+ * (panfrost only matches arm,mali-valhall-jm).  Keep disabled to
+ * avoid referencing unpowered GPU registers.
+ */
 &gpu {
 	mali-supply = <&vdd_gpu_s0>;
-	mem-supply = <&vdd_gpu_mem_s0>;
-	status = "okay";
-};
-
-&rknpu {
-	rknpu-supply = <&vdd_npu_s0>;
-	mem-supply = <&vdd_npu_mem_s0>;
-	status = "okay";
-};
-
-&rknpu_mmu {
-	status = "okay";
+	status = "disabled";
 };
 
 &av1d {
@@ -413,14 +341,6 @@
 	status = "disabled";
 };
 
-&rga3_core0 {
-	status = "okay";
-};
-
-&rga3_0_mmu {
-	status = "okay";
-};
-
 &rga3_core1 {
 	status = "disabled";
 };
@@ -429,106 +349,92 @@
 	status = "disabled";
 };
 
-&rga2 {
-	status = "okay";
-};
-
-/* Disable unused JPEG encoder cores 1-3 */
-&jpege1 {
+&vepu121_1 {
 	status = "disabled";
 };
 
-&jpege1_mmu {
+&vepu121_1_mmu {
 	status = "disabled";
 };
 
-&jpege2 {
+&vepu121_2 {
 	status = "disabled";
 };
 
-&jpege2_mmu {
+&vepu121_2_mmu {
 	status = "disabled";
 };
 
-&jpege3 {
+&vepu121_3 {
 	status = "disabled";
 };
 
-&jpege3_mmu {
+&vepu121_3_mmu {
 	status = "disabled";
 };
 
-/* Disable unused video decoder core 1 */
-&rkvdec1 {
+&vdec1 {
 	status = "disabled";
 };
 
-&rkvdec1_mmu {
+&vdec1_mmu {
 	status = "disabled";
 };
 
-/*
-
- * HDMI0 is disabled on this board.  The vendor HDMI controller does
- * not provide an hdmi0_out output port, so the connector endpoint
- * is omitted.
- */
 &hdmi0 {
 	status = "disabled";
 };
 
+&hdmi0_out {
+	hdmi0_out_con: endpoint {
+		remote-endpoint = <&hdmi0_con_in>;
+	};
+};
+
+/*
+ * HDMI1 TX: the 6.6 mainline tree has no rockchip,rk3588-dw-hdmi-qp
+ * driver.  Keep disabled to avoid a dangling display pipeline.
+ */
 &hdmi1 {
 	frl-enable-gpios = <&gpio1 RK_PC6 GPIO_ACTIVE_LOW>;
 	pinctrl-0 = <&hdmim1_tx1_cec &hdmim0_tx1_hpd
 		     &hdmim2_tx1_scl &hdmim2_tx1_sda &hdmi1_tx_on_h>;
 	pinctrl-names = "default";
-	status = "okay";
+	status = "disabled";
 };
 
-/*
-
- * HDMI1 input connection (VP0 → HDMI1) is wired up in
- * rk3588.dtsi (hdmi1_in_vp0 ↔ vp0_out_hdmi1), but the endpoint
- * defaults to "disabled" — we must enable it here.
- */
-&hdmi1_in_vp0 {
-	status = "okay";
+&hdmi1_in {
+	hdmi1_in_vp0: endpoint {
+		remote-endpoint = <&vp0_out_hdmi1>;
+	};
 };
 
-&display_subsystem {
-	clocks = <&hdptxphy_hdmi1>;
-	clock-names = "hdmi1_phy_pll";
+&hdmi1_out {
+	hdmi1_out_con: endpoint {
+		remote-endpoint = <&hdmi1_con_in>;
+	};
 };
 
-&route_hdmi1 {
-	status = "okay";
-	connect = <&vp0_out_hdmi1>;
+&hdmi1_sound {
+	status = "disabled";
 };
 
-/*
+&hdmi_receiver_cma {
+	status = "disabled";
+};
 
- * HDMI1 output — connector endpoint removed since the vendor HDMI
- * controller has no hdmi1_out port.  The display pipeline connects
- * VOP VP0 → HDMI1 input directly.
- */
-/* HDMI1 sound is disabled — only analog audio via ES8388 is used */
+&hdmi_receiver {
+	hpd-gpios = <&gpio1 RK_PD5 GPIO_ACTIVE_LOW>;
+	pinctrl-0 = <&hdmim1_rx_cec &hdmim1_rx_hpdin &hdmim1_rx_scl &hdmim1_rx_sda &hdmirx_hpd>;
+	pinctrl-names = "default";
+	status = "disabled";
+};
 
-/*
-
- * HDMI receiver CMA — not needed since HDMI RX is disabled.
- * The vendor kernel uses hdmirx_ctrler (not hdmi_receiver) and
- * requires a reserved-memory CMA node when enabled.
- */
-
-&hdptxphy0 {
+&hdptxphy_hdmi0 {
 	status = "disabled";
 };
 
 &hdptxphy1 {
-	status = "disabled";
-};
-
-&hdptxphy_hdmi1 {
 	status = "okay";
 };
 
@@ -541,7 +447,7 @@
 	pinctrl-names = "default";
 	status = "okay";
 
-	vdd_npu_s0: vdd_npu_mem_s0: regulator@42 {
+	vdd_npu_s0: regulator@42 {
 		compatible = "rockchip,rk8602";
 		reg = <0x42>;
 		fcs,suspend-voltage-selector = <1>;
@@ -564,7 +470,7 @@
 	pinctrl-names = "default";
 	status = "okay";
 
-	vdd_cpu_big0_s0: vdd_cpu_big0_mem_s0: regulator@42 {
+	vdd_cpu_big0_s0: regulator@42 {
 		compatible = "rockchip,rk8602";
 		reg = <0x42>;
 		fcs,suspend-voltage-selector = <1>;
@@ -581,7 +487,7 @@
 		};
 	};
 
-	vdd_cpu_big1_s0: vdd_cpu_big1_mem_s0: regulator@43 {
+	vdd_cpu_big1_s0: regulator@43 {
 		compatible = "rockchip,rk8603", "rockchip,rk8602";
 		reg = <0x43>;
 		fcs,suspend-voltage-selector = <1>;
@@ -653,7 +559,7 @@
 				port@0 {
 					reg = <0>;
 					usbc0_hs: endpoint {
-						remote-endpoint = <&dwc3_0_role_sw>;
+						remote-endpoint = <&usb_host0_xhci_drd_sw>;
 					};
 				};
 
@@ -682,7 +588,6 @@
 	smdt_wdt: watchdog@62 {
 		compatible = "smdt,mcu-wdt";
 		reg = <0x62>;
-		status = "okay";
 	};
 };
 
@@ -727,22 +632,17 @@
 	status = "disabled";
 };
 
-/*
-
- * Thermal cooling maps for the PWM fan.  The vendor rk3588s.dtsi
- * defines soc_thermal (not package_thermal).
- */
-&soc_thermal {
+&package_thermal {
 	polling-delay = <1000>;
 
 	trips {
-		soc_warm: soc-warm {
+		package_warm: package-warm {
 			temperature = <55000>;
 			hysteresis = <2000>;
 			type = "active";
 		};
 
-		soc_hot: soc-hot {
+		package_hot: package-hot {
 			temperature = <65000>;
 			hysteresis = <2000>;
 			type = "active";
@@ -751,12 +651,12 @@
 
 	cooling-maps {
 		map0 {
-			trip = <&soc_warm>;
+			trip = <&package_warm>;
 			cooling-device = <&fan THERMAL_NO_LIMIT 1>;
 		};
 
 		map1 {
-			trip = <&soc_hot>;
+			trip = <&package_hot>;
 			cooling-device = <&fan 2 THERMAL_NO_LIMIT>;
 		};
 	};
@@ -766,7 +666,6 @@
 	reset-gpios = <&gpio3 RK_PC6 GPIO_ACTIVE_HIGH>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pcie2_0_rst &wifi_poweren>;
-	/delete-property/ iommu-map;
 	status = "okay";
 };
 
@@ -790,24 +689,6 @@
 };
 
 &pinctrl {
-	bluetooth {
-		bt_reset_gpio: bt-reset-gpio {
-			rockchip,pins = <2 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-
-		bt_wake_gpio: bt-wake-gpio {
-			rockchip,pins = <1 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-
-		bt_irq_gpio: bt-irq-gpio {
-			rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-
-		uart9_rts_gpio: uart9-rts-gpio {
-			rockchip,pins = <4 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
-		};
-	};
-
 	hdmi {
 		hdmi1_tx_on_h: hdmi1-tx-on-h {
 			rockchip,pins = <1 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>;
@@ -856,6 +737,24 @@
 		};
 	};
 
+	bluetooth {
+		bt_reset_gpio: bt-reset-gpio {
+			rockchip,pins = <2 RK_PC1 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_wake_gpio: bt-wake-gpio {
+			rockchip,pins = <1 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		bt_irq_gpio: bt-irq-gpio {
+			rockchip,pins = <0 RK_PA0 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+
+		uart9_rts_gpio: uart9-rts-gpio {
+			rockchip,pins = <4 RK_PC4 RK_FUNC_GPIO &pcfg_pull_none>;
+		};
+	};
+
 	usb {
 		usbc0_int: usbc0-int {
 			rockchip,pins = <0 RK_PD3 RK_FUNC_GPIO &pcfg_pull_up>;
@@ -889,17 +788,49 @@
 
 &pwm1 {
 	pinctrl-0 = <&pwm1m1_pins>;
-	pinctrl-names = "active";
+	pinctrl-names = "default";
 	status = "okay";
 };
 
 /*
-
- * NPU (RKNN) core references removed — the vendor rk3588s.dtsi in
- * this kernel does not define rknn_core_* / rknn_mmu_* nodes.
- * The NPU is managed out-of-tree and does not require DTS nodes
- * in this kernel version.
+ * The NPU (RKNN) cores and their IOMMUs are left disabled: the 6.6
+ * mainline tree has no rockchip,rk3588-rknn-core driver, while the
+ * rknn_mmu nodes would bind to the mainline rockchip-iommu driver.
+ * Leaving rknn_core_* enabled with iommus=<&rknn_mmu_*> triggers an
+ * early NULL-deref in of_iommu_configure()/rk_iommu_probe_device()
+ * (the iommu platform driver hasn't probed yet, so drvdata is NULL),
+ * which panics before the console is up.  Disable until a matching
+ * rknn driver is available.
  */
+&rknn_core_0 {
+	npu-supply = <&vdd_npu_s0>;
+	sram-supply = <&vdd_npu_s0>;
+	status = "disabled";
+};
+
+&rknn_core_1 {
+	npu-supply = <&vdd_npu_s0>;
+	sram-supply = <&vdd_npu_s0>;
+	status = "disabled";
+};
+
+&rknn_core_2 {
+	npu-supply = <&vdd_npu_s0>;
+	sram-supply = <&vdd_npu_s0>;
+	status = "disabled";
+};
+
+&rknn_mmu_0 {
+	status = "disabled";
+};
+
+&rknn_mmu_1 {
+	status = "disabled";
+};
+
+&rknn_mmu_2 {
+	status = "disabled";
+};
 
 &saradc {
 	vref-supply = <&avcc_1v8_s0>;
@@ -914,9 +845,6 @@
 	max-frequency = <200000000>;
 	mmc-hs400-1_8v;
 	mmc-hs400-enhanced-strobe;
-	pinctrl-names = "default";
-	pinctrl-0 = <&emmc_rstnout>, <&emmc_bus8>, <&emmc_clk>,
-		     <&emmc_cmd>, <&emmc_data_strobe>;
 	status = "okay";
 };
 
@@ -970,24 +898,10 @@
 		interrupts = <7 IRQ_TYPE_LEVEL_LOW>;
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pmic_pins>;
+		pinctrl-0 = <&pmic_pins>, <&rk806_dvs1_null>,
+			    <&rk806_dvs2_null>, <&rk806_dvs3_null>;
 
-		/* 2800mv-3500mv */
-		low_voltage_threshold = <3000>;
-		/* 2700mv-3400mv */
-		shutdown_voltage_threshold = <2700>;
-		/* 140 160 */
-		shutdown_temperture_threshold = <160>;
-		hotdie_temperture_threshold = <115>;
-
-		/* 0: restart PMU;
-		 * 1: reset all the power off reset registers,
-		 *    forcing the state to switch to ACTIVE mode;
-		 * 2: Reset all the power off reset registers,
-		 *    forcing the state to switch to ACTIVE mode,
-		 *    and simultaneously pull down the RESETB PIN for 5mS before releasing
-		 */
-		pmic-reset-func = <1>;
+		system-power-controller;
 
 		vcc1-supply = <&vcc4v0_sys>;
 		vcc2-supply = <&vcc4v0_sys>;
@@ -1008,12 +922,23 @@
 		gpio-controller;
 		#gpio-cells = <2>;
 
-		pwrkey {
-			status = "okay";
+		rk806_dvs1_null: dvs1-null-pins {
+			pins = "gpio_pwrctrl1";
+			function = "pin_fun0";
+		};
+
+		rk806_dvs2_null: dvs2-null-pins {
+			pins = "gpio_pwrctrl2";
+			function = "pin_fun0";
+		};
+
+		rk806_dvs3_null: dvs3-null-pins {
+			pins = "gpio_pwrctrl3";
+			function = "pin_fun0";
 		};
 
 		regulators {
-			vdd_gpu_s0: vdd_gpu_mem_s0: DCDC_REG1 {
+			vdd_gpu_s0: vdd_gpu_mem_s0: dcdc-reg1 {
 				regulator-boot-on;
 				regulator-min-microvolt = <550000>;
 				regulator-max-microvolt = <950000>;
@@ -1026,10 +951,9 @@
 				};
 			};
 
-			vdd_cpu_lit_s0: vdd_cpu_lit_mem_s0: DCDC_REG2 {
+			vdd_cpu_lit_s0: vdd_cpu_lit_mem_s0: dcdc-reg2 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-init-microvolt = <800000>;
 				regulator-min-microvolt = <550000>;
 				regulator-max-microvolt = <950000>;
 				regulator-ramp-delay = <12500>;
@@ -1040,11 +964,11 @@
 				};
 			};
 
-			vdd_log_s0: DCDC_REG3 {
+			vdd_log_s0: dcdc-reg3 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <675000>;
-				regulator-max-microvolt = <800000>;
+				regulator-max-microvolt = <750000>;
 				regulator-ramp-delay = <12500>;
 				regulator-name = "vdd_log_s0";
 
@@ -1054,10 +978,9 @@
 				};
 			};
 
-			vdd_vdenc_s0: vdd_vdenc_mem_s0: DCDC_REG4 {
+			vdd_vdenc_s0: vdd_vdenc_mem_s0: dcdc-reg4 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-init-microvolt = <750000>;
 				regulator-min-microvolt = <550000>;
 				regulator-max-microvolt = <950000>;
 				regulator-ramp-delay = <12500>;
@@ -1068,7 +991,7 @@
 				};
 			};
 
-			vdd_ddr_s0: DCDC_REG5 {
+			vdd_ddr_s0: dcdc-reg5 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <675000>;
@@ -1082,7 +1005,7 @@
 				};
 			};
 
-			vdd2_ddr_s3: DCDC_REG6 {
+			vdd2_ddr_s3: dcdc-reg6 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-name = "vdd2_ddr_s3";
@@ -1092,11 +1015,12 @@
 				};
 			};
 
-			vcc_2v0_pldo_s3: DCDC_REG7 {
+			vcc_2v0_pldo_s3: dcdc-reg7 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <2000000>;
 				regulator-max-microvolt = <2000000>;
+				regulator-ramp-delay = <12500>;
 				regulator-name = "vcc_2v0_pldo_s3";
 
 				regulator-state-mem {
@@ -1105,7 +1029,7 @@
 				};
 			};
 
-			vcc_3v3_s3: DCDC_REG8 {
+			vcc_3v3_s3: dcdc-reg8 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
@@ -1118,7 +1042,7 @@
 				};
 			};
 
-			vddq_ddr_s0: DCDC_REG9 {
+			vddq_ddr_s0: dcdc-reg9 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-name = "vddq_ddr_s0";
@@ -1128,7 +1052,7 @@
 				};
 			};
 
-			vcc_1v8_s3: DCDC_REG10 {
+			vcc_1v8_s3: dcdc-reg10 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
@@ -1141,7 +1065,7 @@
 				};
 			};
 
-			avcc_1v8_s0: PLDO_REG1 {
+			avcc_1v8_s0: pldo-reg1 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
@@ -1153,7 +1077,7 @@
 				};
 			};
 
-			vcc_1v8_s0: PLDO_REG2 {
+			vcc_1v8_s0: pldo-reg2 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
@@ -1166,7 +1090,7 @@
 				};
 			};
 
-			avdd_1v2_s0: PLDO_REG3 {
+			avdd_1v2_s0: pldo-reg3 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1200000>;
@@ -1178,11 +1102,12 @@
 				};
 			};
 
-			vcc_3v3_s0: PLDO_REG4 {
+			vcc_3v3_s0: pldo-reg4 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <3300000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-ramp-delay = <12500>;
 				regulator-name = "vcc_3v3_s0";
 
 				regulator-state-mem {
@@ -1190,11 +1115,12 @@
 				};
 			};
 
-			vccio_sd_s0: PLDO_REG5 {
+			vccio_sd_s0: pldo-reg5 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
 				regulator-max-microvolt = <3300000>;
+				regulator-ramp-delay = <12500>;
 				regulator-name = "vccio_sd_s0";
 
 				regulator-state-mem {
@@ -1202,7 +1128,7 @@
 				};
 			};
 
-			pldo6_s3: PLDO_REG6 {
+			pldo6_s3: pldo-reg6 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <1800000>;
@@ -1215,7 +1141,7 @@
 				};
 			};
 
-			vdd_0v75_s3: NLDO_REG1 {
+			vdd_0v75_s3: nldo-reg1 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <750000>;
@@ -1228,7 +1154,7 @@
 				};
 			};
 
-			vdd_ddr_pll_s0: NLDO_REG2 {
+			vdd_ddr_pll_s0: nldo-reg2 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <850000>;
@@ -1241,11 +1167,11 @@
 				};
 			};
 
-			avdd_0v75_s0: NLDO_REG3 {
+			avdd_0v75_s0: nldo-reg3 {
 				regulator-always-on;
 				regulator-boot-on;
-				regulator-min-microvolt = <837500>;
-				regulator-max-microvolt = <837500>;
+				regulator-min-microvolt = <750000>;
+				regulator-max-microvolt = <750000>;
 				regulator-name = "avdd_0v75_s0";
 
 				regulator-state-mem {
@@ -1253,7 +1179,7 @@
 				};
 			};
 
-			vdd_0v85_s0: NLDO_REG4 {
+			vdd_0v85_s0: nldo-reg4 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <850000>;
@@ -1265,7 +1191,7 @@
 				};
 			};
 
-			vdd_0v75_s0: NLDO_REG5 {
+			vdd_0v75_s0: nldo-reg5 {
 				regulator-always-on;
 				regulator-boot-on;
 				regulator-min-microvolt = <750000>;
@@ -1342,23 +1268,7 @@
 	};
 };
 
-&usbdp_phy0_dp {
-	status = "okay";
-};
-
-&usbdp_phy0_u3 {
-	status = "okay";
-};
-
 &usbdp_phy1 {
-	status = "okay";
-};
-
-&usbdp_phy1_dp {
-	status = "okay";
-};
-
-&usbdp_phy1_u3 {
 	status = "okay";
 };
 
@@ -1370,40 +1280,18 @@
 	status = "okay";
 };
 
-/*
-
- * USB host controller configuration.
- * The vendor rk3588s.dtsi uses usbdrd_dwc3_0 / usbdrd_dwc3_1
- * (not usb_host0_xhci / usb_host1_xhci).  usb_host2_xhci does
- * not exist in this kernel's DTS hierarchy.
- */
-
-/* Enable USB3 OTG0 controller for Type-C dual-role */
-&usbdrd3_0 {
-	status = "okay";
-};
-
-&usbdrd_dwc3_0 {
+&usb_host0_xhci {
 	usb-role-switch;
 	status = "okay";
 
 	port {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		dwc3_0_role_sw: endpoint@0 {
-			reg = <0>;
+		usb_host0_xhci_drd_sw: endpoint {
 			remote-endpoint = <&usbc0_hs>;
 		};
 	};
 };
 
-/* Enable USB3 OTG1 controller in host mode */
-&usbdrd3_1 {
-	status = "okay";
-};
-
-&usbdrd_dwc3_1 {
+&usb_host1_xhci {
 	dr_mode = "host";
 	status = "okay";
 };
@@ -1416,17 +1304,9 @@
 	status = "okay";
 };
 
-&uart9 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart9m0_xfer>;
+&usb_host2_xhci {
 	status = "okay";
 };
-
-/*
-
- * usb_host2_xhci removed — does not exist in the vendor
- * rk3588s.dtsi / rk3588.dtsi hierarchy.
- */
 
 &vop_mmu {
 	status = "okay";
@@ -1436,14 +1316,34 @@
 	status = "okay";
 };
 
-/*
+&vp0 {
+	vp0_out_hdmi1: endpoint@ROCKCHIP_VOP2_EP_HDMI1 {
+		reg = <ROCKCHIP_VOP2_EP_HDMI1>;
+		remote-endpoint = <&hdmi1_in_vp0>;
+	};
+};
 
- * VP0 → HDMI1 endpoint is already defined and connected in
- * rk3588.dtsi (vp0_out_hdmi1 ↔ hdmi1_in_vp0).
- */
 &vp1 {
 };
 
 &wdt {
+	status = "disabled";
+};
+
+&uart9 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart9m0_xfer &uart9m0_ctsn &uart9m0_rtsn>;
 	status = "okay";
+
+	bluetooth {
+		compatible = "brcm,bcm43752-bt";
+		clocks = <&hym8563>;
+		clock-names = "lpo";
+		shutdown-gpios = <&gpio2 RK_PC1 GPIO_ACTIVE_HIGH>;
+		device-wakeup-gpios = <&gpio1 RK_PC4 GPIO_ACTIVE_HIGH>;
+		host-wakeup-gpios = <&gpio0 RK_PA0 GPIO_ACTIVE_HIGH>;
+		max-speed = <1500000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&bt_reset_gpio &bt_wake_gpio &bt_irq_gpio>;
+	};
 };
