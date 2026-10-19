@@ -267,6 +267,7 @@ static int npu_opp_config_regulators(struct device *dev,
 }
 
 static int npu_opp_config_clks(struct device *dev, struct opp_table *opp_table,
+			       struct dev_pm_opp *old_opp,
 			       struct dev_pm_opp *opp, void *data,
 			       bool scaling_down)
 {

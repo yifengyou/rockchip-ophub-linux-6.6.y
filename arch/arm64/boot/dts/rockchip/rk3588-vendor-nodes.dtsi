@@ -83,7 +83,7 @@
 		interrupts = <GIC_SPI 92 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 93 IRQ_TYPE_LEVEL_HIGH 0>,
 			     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH 0>;
-		interrupt-names = "job", "mmu", "gpu";
+		interrupt-names = "JOB", "MMU", "GPU";
 		power-domains = <&power RK3588_PD_GPU>;
 		operating-points-v2 = <&gpu_opp_table>;
 		status = "disabled";
