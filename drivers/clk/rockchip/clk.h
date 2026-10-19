@@ -1028,4 +1028,25 @@ static inline void rockchip_register_softrst(struct device_node *np,
 
 void rk3588_rst_init(struct device_node *np, void __iomem *reg_base);
 
+/*
+ * Rockchip BSP PLL scale helpers (used by rockchip_opp_select for
+ * GPU/NPU IR-drop / AVS opp adjustment). Implemented in clk-pll.c.
+ */
+struct clk;
+int rockchip_pll_clk_adaptive_scaling(struct clk *clk, int sel);
+int rockchip_pll_clk_rate_to_scale(struct clk *clk, unsigned long rate);
+int rockchip_pll_clk_scale_to_rate(struct clk *clk, unsigned int scale);
+
+/*
+ * rockchip_pvtpll_volt_sel_adjust() is provided by the Rockchip BSP
+ * clk-pvtpll driver (CONFIG_ROCKCHIP_CLK_PVTPLL), which is not built
+ * on RK3588. Provide a no-op stub so rockchip_opp_select links.
+ */
+#if !IS_REACHABLE(CONFIG_ROCKCHIP_CLK_PVTPLL)
+static inline int rockchip_pvtpll_volt_sel_adjust(u32 clock_id, u32 volt_sel)
+{
+	return -ENODEV;
+}
+#endif
+
 #endif

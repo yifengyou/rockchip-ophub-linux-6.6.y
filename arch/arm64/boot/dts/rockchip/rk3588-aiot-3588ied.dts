@@ -324,13 +324,13 @@
 };
 
 /*
- * GPU: the 6.6 mainline tree has no driver for arm,mali-valhall-csf
- * (panfrost only matches arm,mali-valhall-jm).  Keep disabled to
- * avoid referencing unpowered GPU registers.
+ * GPU: Mali-G610 MP4 (Valhall CSF).  The Rockchip BSP mali-valhall
+ * driver (CONFIG_MALI_VALHALL with platform "rk") is now available
+ * in this tree, so the GPU can be enabled.
  */
 &gpu {
 	mali-supply = <&vdd_gpu_s0>;
-	status = "disabled";
+	status = "okay";
 };
 
 &av1d {
@@ -793,42 +793,22 @@
 };
 
 /*
- * The NPU (RKNN) cores and their IOMMUs are left disabled: the 6.6
- * mainline tree has no rockchip,rk3588-rknn-core driver, while the
- * rknn_mmu nodes would bind to the mainline rockchip-iommu driver.
- * Leaving rknn_core_* enabled with iommus=<&rknn_mmu_*> triggers an
- * early NULL-deref in of_iommu_configure()/rk_iommu_probe_device()
- * (the iommu platform driver hasn't probed yet, so drvdata is NULL),
- * which panics before the console is up.  Disable until a matching
- * rknn driver is available.
+ * NPU (RKNN) is enabled with the Rockchip BSP rknpu driver
+ * (CONFIG_ROCKCHIP_RKNPU), which binds to the single "rknpu" node
+ * (compatible "rockchip,rk3588-rknpu") defined in
+ * rk3588-vendor-nodes.dtsi and manages all three cores.
+ *
+ * The rknpu_mmu is left disabled: the BSP rknpu driver runs in
+ * non-iommu mode, which avoids IOMMU runtime-suspend crashes when the
+ * NPU power domain is powered off (matching the upstream Rockchip BSP
+ * board configuration for this SoC).
  */
-&rknn_core_0 {
-	npu-supply = <&vdd_npu_s0>;
-	sram-supply = <&vdd_npu_s0>;
-	status = "disabled";
+&rknpu {
+	rknpu-supply = <&vdd_npu_s0>;
+	status = "okay";
 };
 
-&rknn_core_1 {
-	npu-supply = <&vdd_npu_s0>;
-	sram-supply = <&vdd_npu_s0>;
-	status = "disabled";
-};
-
-&rknn_core_2 {
-	npu-supply = <&vdd_npu_s0>;
-	sram-supply = <&vdd_npu_s0>;
-	status = "disabled";
-};
-
-&rknn_mmu_0 {
-	status = "disabled";
-};
-
-&rknn_mmu_1 {
-	status = "disabled";
-};
-
-&rknn_mmu_2 {
+&rknpu_mmu {
 	status = "disabled";
 };
 

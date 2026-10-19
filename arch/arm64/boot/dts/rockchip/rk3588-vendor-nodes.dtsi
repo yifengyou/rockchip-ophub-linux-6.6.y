@@ -85,97 +85,152 @@
 			     <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH 0>;
 		interrupt-names = "job", "mmu", "gpu";
 		power-domains = <&power RK3588_PD_GPU>;
+		operating-points-v2 = <&gpu_opp_table>;
 		status = "disabled";
 	};
 
-	rknn_core_0: npu@fdab0000 {
-		compatible = "rockchip,rk3588-rknn-core";
-		reg = <0x0 0xfdab0000 0x0 0x1000>,
-		      <0x0 0xfdab1000 0x0 0x1000>,
-		      <0x0 0xfdab3000 0x0 0x1000>;
-		reg-names = "pc", "cna", "core";
-		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&cru ACLK_NPU0>, <&cru HCLK_NPU0>,
-			 <&scmi_clk SCMI_CLK_NPU>, <&cru PCLK_NPU_ROOT>;
-		clock-names = "aclk", "hclk", "npu", "pclk";
-		assigned-clocks = <&scmi_clk SCMI_CLK_NPU>;
+	gpu_opp_table: opp-table-gpu {
+		compatible = "operating-points-v2";
+		nvmem-cells = <&gpu_leakage>;
+		nvmem-cell-names = "leakage";
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <725000 725000 800000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <725000 725000 800000>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <725000 725000 800000>;
+		};
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <725000 725000 800000>;
+		};
+
+		opp-700000000 {
+			opp-hz = /bits/ 64 <700000000>;
+			opp-microvolt = <750000 750000 800000>;
+		};
+
+		opp-800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <800000 800000 850000>;
+		};
+
+		opp-900000000 {
+			opp-hz = /bits/ 64 <900000000>;
+			opp-microvolt = <850000 850000 900000>;
+		};
+
+		opp-1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <925000 925000 950000>;
+		};
+	};
+
+	/*
+	 * NPU (RKNN): single rknpu node managing all three cores, as
+	 * expected by the Rockchip BSP rknpu driver
+	 * (CONFIG_ROCKCHIP_RKNPU). The driver reads 3 reg regions and 3
+	 * named interrupts ("npu0_irq".."npu2_irq") from this node.
+	 * Ported from the Rockchip BSP rk3588-vendor-ip.dtsi.
+	 */
+	rknpu: rknpu@fdab0000 {
+		compatible = "rockchip,rk3588-rknpu";
+		reg = <0x0 0xfdab0000 0x0 0x10000>,
+		      <0x0 0xfdac0000 0x0 0x10000>,
+		      <0x0 0xfdad0000 0x0 0x10000>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "npu0_irq", "npu1_irq", "npu2_irq";
+		clocks = <&cru CLK_NPU_DSU0>, <&cru ACLK_NPU0>,
+			 <&cru ACLK_NPU1>, <&cru ACLK_NPU2>,
+			 <&cru HCLK_NPU0>, <&cru HCLK_NPU1>,
+			 <&cru HCLK_NPU2>, <&cru PCLK_NPU_ROOT>;
+		clock-names = "clk_npu", "aclk0", "aclk1", "aclk2",
+			      "hclk0", "hclk1", "hclk2", "pclk";
+		assigned-clocks = <&cru CLK_NPU_DSU0>;
 		assigned-clock-rates = <200000000>;
-		resets = <&cru SRST_A_RKNN0>, <&cru SRST_H_RKNN0>;
-		reset-names = "srst_a", "srst_h";
-		power-domains = <&power RK3588_PD_NPUTOP>;
-		iommus = <&rknn_mmu_0>;
+		resets = <&cru SRST_A_RKNN0>, <&cru SRST_A_RKNN1>,
+			 <&cru SRST_A_RKNN2>, <&cru SRST_H_RKNN0>,
+			 <&cru SRST_H_RKNN1>, <&cru SRST_H_RKNN2>;
+		reset-names = "srst_a0", "srst_a1", "srst_a2",
+			      "srst_h0", "srst_h1", "srst_h2";
+		power-domains = <&power RK3588_PD_NPUTOP>,
+				<&power RK3588_PD_NPU1>,
+				<&power RK3588_PD_NPU2>;
+		power-domain-names = "npu0", "npu1", "npu2";
+		operating-points-v2 = <&rknpu_opp_table>;
 		status = "disabled";
 	};
 
-	rknn_mmu_0: iommu@fdab9000 {
-		compatible = "rockchip,rk3588-iommu", "rockchip,rk3568-iommu";
+	rknpu_opp_table: opp-table-npu {
+		compatible = "operating-points-v2";
+		nvmem-cells = <&npu_leakage>;
+		nvmem-cell-names = "leakage";
+
+		opp-300000000 {
+			opp-hz = /bits/ 64 <300000000>;
+			opp-microvolt = <600000 600000 850000>;
+		};
+
+		opp-400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-microvolt = <625000 625000 850000>;
+		};
+
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-microvolt = <650000 650000 850000>;
+		};
+
+		opp-600000000 {
+			opp-hz = /bits/ 64 <600000000>;
+			opp-microvolt = <675000 675000 850000>;
+		};
+
+		opp-700000000 {
+			opp-hz = /bits/ 64 <700000000>;
+			opp-microvolt = <700000 700000 850000>;
+		};
+
+		opp-800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-microvolt = <750000 750000 850000>;
+		};
+
+		opp-900000000 {
+			opp-hz = /bits/ 64 <900000000>;
+			opp-microvolt = <800000 800000 850000>;
+		};
+
+		opp-1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-microvolt = <850000 850000 950000>;
+		};
+	};
+
+	rknpu_mmu: iommu@fdab9000 {
+		compatible = "rockchip,rk3568-iommu";
 		reg = <0x0 0xfdab9000 0x0 0x100>,
-		      <0x0 0xfdaba000 0x0 0x100>;
-		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH 0>;
+		      <0x0 0xfdaba000 0x0 0x100>,
+		      <0x0 0xfdaca000 0x0 0x100>,
+		      <0x0 0xfdada000 0x0 0x100>;
+		interrupts = <GIC_SPI 110 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>,
+			     <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH 0>;
+		interrupt-names = "npu0_mmu", "npu1_mmu", "npu2_mmu";
 		clocks = <&cru ACLK_NPU0>, <&cru HCLK_NPU0>;
 		clock-names = "aclk", "iface";
 		#iommu-cells = <0>;
-		power-domains = <&power RK3588_PD_NPUTOP>;
-		status = "disabled";
-	};
-
-	rknn_core_1: npu@fdac0000 {
-		compatible = "rockchip,rk3588-rknn-core";
-		reg = <0x0 0xfdac0000 0x0 0x1000>,
-		      <0x0 0xfdac1000 0x0 0x1000>,
-		      <0x0 0xfdac3000 0x0 0x1000>;
-		reg-names = "pc", "cna", "core";
-		interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&cru ACLK_NPU1>, <&cru HCLK_NPU1>,
-			 <&scmi_clk SCMI_CLK_NPU>, <&cru PCLK_NPU_ROOT>;
-		clock-names = "aclk", "hclk", "npu", "pclk";
-		assigned-clocks = <&scmi_clk SCMI_CLK_NPU>;
-		assigned-clock-rates = <200000000>;
-		resets = <&cru SRST_A_RKNN1>, <&cru SRST_H_RKNN1>;
-		reset-names = "srst_a", "srst_h";
-		power-domains = <&power RK3588_PD_NPU1>;
-		iommus = <&rknn_mmu_1>;
-		status = "disabled";
-	};
-
-	rknn_mmu_1: iommu@fdaca000 {
-		compatible = "rockchip,rk3588-iommu", "rockchip,rk3568-iommu";
-		reg = <0x0 0xfdaca000 0x0 0x100>;
-		interrupts = <GIC_SPI 111 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&cru ACLK_NPU1>, <&cru HCLK_NPU1>;
-		clock-names = "aclk", "iface";
-		#iommu-cells = <0>;
-		power-domains = <&power RK3588_PD_NPU1>;
-		status = "disabled";
-	};
-
-	rknn_core_2: npu@fdad0000 {
-		compatible = "rockchip,rk3588-rknn-core";
-		reg = <0x0 0xfdad0000 0x0 0x1000>,
-		      <0x0 0xfdad1000 0x0 0x1000>,
-		      <0x0 0xfdad3000 0x0 0x1000>;
-		reg-names = "pc", "cna", "core";
-		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&cru ACLK_NPU2>, <&cru HCLK_NPU2>,
-			 <&scmi_clk SCMI_CLK_NPU>, <&cru PCLK_NPU_ROOT>;
-		clock-names = "aclk", "hclk", "npu", "pclk";
-		assigned-clocks = <&scmi_clk SCMI_CLK_NPU>;
-		assigned-clock-rates = <200000000>;
-		resets = <&cru SRST_A_RKNN2>, <&cru SRST_H_RKNN2>;
-		reset-names = "srst_a", "srst_h";
-		power-domains = <&power RK3588_PD_NPU2>;
-		iommus = <&rknn_mmu_2>;
-		status = "disabled";
-	};
-
-	rknn_mmu_2: iommu@fdada000 {
-		compatible = "rockchip,rk3588-iommu", "rockchip,rk3568-iommu";
-		reg = <0x0 0xfdada000 0x0 0x100>;
-		interrupts = <GIC_SPI 112 IRQ_TYPE_LEVEL_HIGH 0>;
-		clocks = <&cru ACLK_NPU2>, <&cru HCLK_NPU2>;
-		clock-names = "aclk", "iface";
-		#iommu-cells = <0>;
-		power-domains = <&power RK3588_PD_NPU2>;
 		status = "disabled";
 	};
 
